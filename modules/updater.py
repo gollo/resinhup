@@ -305,32 +305,6 @@ class Updater:
 
     def verifyConfigJson(self):
         log.info("verifyConfigJson: Verifying and fixing config.json")
-        ctype = getConfigurationItem(self.conf, 'config.json', 'type')
-        if not ctype:
-            log.error("Don't know if staging/production.")
-            return False
-        try:
-            options = getSectionOptions(self.conf, ctype)
-            configjsonpath = getConfJsonPath(self.conf)
-            for option in options:
-                value = getConfigurationItem(self.conf, ctype, option)
-                if value:
-                    if jsonGetAttribute(configjsonpath, option) != value:
-                        log.debug("verifyConfigJson: Fixing config.json: " + option + "=" + value + ".")
-                        jsonSetAttribute(configjsonpath, option, value)
-                else:
-                    if not jsonAttributeExists(configjsonpath, option):
-                        if option == 'registered_at':
-                            value = str(int(time.time()))
-                        else:
-                            log.error("verifyConfigJson: Don't know the value of %s." % option)
-                            return False
-                        log.debug("verifyConfigJson: Fixing config.json: " + option + "=" + value + ".")
-                        jsonSetAttribute(configjsonpath, option, value)
-        except Exception as e:
-            log.error("verifyConfigJson: Error while verifying config.json.")
-            log.error(str(e))
-            return False
         return True
 
     def upgradeSystem(self):
