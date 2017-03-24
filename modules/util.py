@@ -327,10 +327,10 @@ def getConfJsonPath(conffile):
     return None
 
 def runningDevice(conffile):
-    conf = getConfJsonPath(conffile)
-    if not conf:
-        return None
-    child = subprocess.Popen("jq -r .deviceType " + conf, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    root_mount = getConfigurationItem(conffile, 'General', 'host_bind_mount')
+    if not root_mount:
+        root_mount = '/'
+    child = subprocess.Popen("jq -r .slug " + root_mount + "/mnt/boot/device-type.json", stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     out, err = child.communicate()
     if out:
         log.debug("Detected board: " + out.decode().strip())

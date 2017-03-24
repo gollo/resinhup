@@ -117,31 +117,6 @@ def main():
         return False
     log.debug(device + " is a supported device for resinhup.")
 
-    # Minimum resinOS version
-    min_version = "1.12.0"
-    if StrictVersion(args.version) < StrictVersion(min_version):
-        log.error("Resinhup is not supported for the resinOS version requested.")
-        return False
-
-    # Is the requested version already there or greater?
-    if not args.allow_downgrades:
-        currentVersion = getCurrentHostOSVersion(args.conf)
-        log.debug("Current detected version: " + currentVersion + ". Requested version = " + args.version + ".")
-        updated = False
-        try:
-            if StrictVersion(currentVersion) >= StrictVersion(args.version):
-                updated=True
-        except:
-            log.warning("Error while checking if device is already at the requested version. Continuing update...")
-
-        if updated:
-            log.info("The device is (" + currentVersion + ") already at the requested or greater version than the one requested (" + args.version + ").")
-            sys.exit(3)
-        else:
-            log.info("Updating from " + currentVersion + " to " + args.version + ".")
-    else:
-        log.debug("Force version update as downgrades were allowed..")
-
     # Check for kernel custom modules
     if ResinKernel().customLoadedModules():
         return False
@@ -176,15 +151,6 @@ def main():
             log.info("Fingerprint validation succeeded on rootfs/boot partition.")
     else:
         log.debug("Fingerprint scan avoided as instructed.")
-
-    # Staging / production
-    log.info("Configure update as " + ("staging" if args.staging else "production") + ".")
-    if args.staging:
-        if not setConfigurationItem(args.conf, "config.json", "type", "staging"):
-            return False
-    else:
-        if not setConfigurationItem(args.conf, "config.json", "type", "production"):
-            return False
 
     # Handle old boot partitions
     r = Repartitioner(args.conf)

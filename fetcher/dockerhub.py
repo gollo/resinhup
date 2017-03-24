@@ -25,11 +25,7 @@ class dockerhubFetcher(tarFetcher):
         super().__init__(conffile, version, remote)
         machine = runningDevice(conffile)
 
-        if StrictVersion(getCurrentHostOSVersion(conffile)) < StrictVersion(PRE_DOCKER_OS):
-            log.warn("Updating a pre " + PRE_DOCKER_OS + " hostOS. We need to pull from resin registry v1. Tweaking remote registry.")
-            self.remote = "registry.resinstaging.io/" + self.remote
-
-        self.remotefile = os.path.join(self.remote + ":" + version + "-" + machine)
+        self.remotefile = os.path.join(self.remote + ":" + version)
 
     def download(self):
         self.cleanworkspace()
@@ -40,11 +36,7 @@ class dockerhubFetcher(tarFetcher):
             cli = Client(base_url='unix://var/run/docker.sock', version='auto')
         except:
             log.warn("Can't connect to docker daemon. Trying the rce socket...")
-            try:
-                cli = Client(base_url='unix://var/run/rce.sock', version='auto')
-            except:
-                log.error("Can't connect to rce daemon.")
-                return False
+            return False
 
         # Pull docker image
         try:
