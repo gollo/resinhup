@@ -234,12 +234,12 @@ class Updater:
     def resetPersistStates(self):
         log.info("resetPersistSates: generate it new on Boot")
 
-        bootmountpoint = getBootPartitionRwMount(self.tempStateMountpoint)
-        if not bootmountpoint:
+        statemountpoint = getStatePartitionRwMount(self.tempStateMountpoint)
+        if not statemountpoint:
             return False
 
         try:
-            os.remove(os.path.join(self.tempStateMountpoint, 'remove_me_to_reset'))
+            os.remove(os.path.join(statemountpoint, 'remove_me_to_reset'))
         except OSError:
             log.error("Can't reset state partition.")
             return False
