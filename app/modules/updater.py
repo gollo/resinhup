@@ -26,6 +26,9 @@ class Updater:
         self.tempBootMountpoint = self.fetcher.workspace + "/boot-tempmountpoint"
         if not os.path.isdir(self.tempBootMountpoint):
             os.makedirs(self.tempBootMountpoint)
+        self.tempStateMountpoint = self.fetcher.workspace + "/state-tempmountpoint"
+        if not os.path.isdir(self.tempStateMountpoint):
+            os.makedirs(self.tempStateMountpoint)
         self.conf = conf
 
     # The logic here is the following:
@@ -202,72 +205,6 @@ class Updater:
             log.debug("Copied " + src + " to " + dst)
         return True
 
-    def fixOldConfigJson(self):
-        # Get host OS root mountpoint
-        root_mount = getConfigurationItem(self.conf, 'General', 'host_bind_mount')
-        if not root_mount:
-            root_mount = '/'
-        # Make sure boot is mounted and RW
-        bootmountpoint = getBootPartitionRwMount(self.conf, self.tempBootMountpoint)
-        if not bootmountpoint:
-            return False
-
-        # Config should be in on boot partition
-        if not os.path.isfile(os.path.join(bootmountpoint, 'config.json')):
-            if os.path.isfile(os.path.join(root_mount, "mnt/data-disk/config.json")) and os.path.isfile(os.path.join(root_mount, "etc/resin.conf")):
-                # We are in the case were we used to have config.json in data partition
-                # We need to translate resin.conf into a config.json and put the final one
-                # in boot partition
-                log.info("Migrate/fix config.json from data partition...")
-
-                variablesmap = {
-                    'API_ENDPOINT': 'apiEndpoint',
-                    'REGISTRY_ENDPOINT': 'registryEndpoint',
-                    'PUBNUB_SUBSCRIBE_KEY': 'pubnubSubscribeKey',
-                    'PUBNUB_PUBLISH_KEY': 'pubnubPublishKey',
-                    'MIXPANEL_TOKEN': 'mixpanelToken',
-                    'LISTEN_PORT': 'listenPort'
-                };
-
-                config = os.path.join(root_mount, "mnt/data-disk/config.json")
-                tmpconfig = "/tmp/config.json"
-                resinconf = os.path.join(root_mount, "etc/resin.conf")
-
-                safeCopy(config, tmpconfig) # Work on a copy
-
-                # Make sure everything in resin.conf is in json
-                with open(resinconf) as resinconffile:
-                    for line in resinconffile:
-                        variable = line.split('=')[0]
-                        if not variable in variablesmap:
-                            continue
-                        value = line.split('=')[1]
-                        mappedvariable = variablesmap[variable]
-                        jsonSetAttribute(tmpconfig, mappedvariable, value.strip(), onlyIfNotDefined=True)
-
-                # Handle VPN address separately as we didn't have it in resin.conf
-                # Compute vpn endpoint based on registry endpoint and write it to json
-                registryEndpoint = jsonGetAttribute(tmpconfig, 'registryEndpoint')
-                vpnEndpoint = registryEndpoint.strip().replace('registry', 'vpn')
-                jsonSetAttribute(tmpconfig, 'vpnEndpoint', vpnEndpoint, onlyIfNotDefined=True)
-
-                # Copy the temp config.json to resin-boot
-                if not safeCopy(tmpconfig, os.path.join(bootmountpoint, 'config.json')):
-                    return False
-                os.remove(tmpconfig)
-            elif os.path.isfile(os.path.join(root_mount, "mnt/conf/config.json")):
-                # We are in the case where the config.json was in conf partition
-                log.info("Migrate config.json from conf partition...")
-                if not safeCopy(getConfJsonPath(self.conf), os.path.join(bootmountpoint, 'config.json')):
-                    return False
-            else:
-                log.warn("Can't detect old config.json.")
-                return False
-        else:
-            log.info("No need to migrate/fix config.json...")
-
-        return True
-
     def fixFsLabels(self):
         log.info("Fixing the labels of all the filesystems...")
 
@@ -287,24 +224,26 @@ class Updater:
         if not getDevice("resin-updt"):
             return False
 
-        # resin-conf
-        if not self.fixOldConfigJson():
-            return False
-
         # resin-data
         if not getDevice("resin-data"):
             log.error("Can't label btrfs partition. You need to do it manually on host OS with: btrfs filesystem label <X> resin-data .")
             return False
-            #btrfspartition = getBTRFSPartition(self.conf)
-            #if not btrfspartition:
-            #    return False
-            #if not setBTRFSDeviceLabel(btrfspartition, "resin-data"):
-            #    return False
 
         return True
 
-    def verifyConfigJson(self):
-        log.info("verifyConfigJson: Verifying and fixing config.json")
+    def resetPersistStates(self):
+        log.info("resetPersistSates: generate it new on Boot")
+
+        bootmountpoint = getBootPartitionRwMount(self.tempStateMountpoint)
+        if not bootmountpoint:
+            return False
+
+        try:
+            os.remove(os.path.join(self.tempStateMountpoint, 'remove_me_to_reset'))
+        except OSError:
+            log.error("Can't reset state partition.")
+            return False
+
         return True
 
     def upgradeSystem(self):
@@ -318,8 +257,8 @@ class Updater:
         if not self.fixFsLabels():
             log.error("Could not fix/setup fs labels.")
             return False
-        if not self.verifyConfigJson():
-            log.error("Could not verify config.json.")
+        if not self.resetPersistSates():
+            log.error("Could not state partition.")
             return False
         if not configureBootloader(getRootPartition(self.conf), self.toUpdateRootDevice()[0], self.conf):
             log.error("Could not configure bootloader.")

@@ -67,21 +67,30 @@ def getBootPartition(conffile):
 def getBootPartitionRwMount(conffile, where):
     'Returns the mount location of the boot partition while making sure it is mounted rw'
     bootdevice = getBootPartition(conffile)
-    if not isMounted(bootdevice):
+    return getPartitionRwMount(bootdevice, where)
+
+def getStatePartitionRwMount(where):
+    'Returns the mount location of the state partition while making sure it is mounted rw'
+    statedevice = getDevice('resin-state')
+    return getPartitionRwMount(statedevice, where)
+
+def getPartitionRwMount(device, where):
+    'Returns the mount location of the a partition while making sure it is mounted rw'
+    if not isMounted(device):
         if isMounted(where):
             if not umount(where):
                 return None
-        if not mount(what=bootdevice, where=where):
+        if not mount(what=device, where=where):
             return None
 
-    bootmountpoint = getMountpoint(bootdevice)
-    if not os.access(bootmountpoint, os.W_OK | os.R_OK):
-        if not mount(what='', where=bootmountpoint, mounttype='', mountoptions='remount,rw'):
+    mountpoint = getMountpoint(device)
+    if not os.access(mountpoint, os.W_OK | os.R_OK):
+        if not mount(what='', where=mountpoint, mounttype='', mountoptions='remount,rw'):
             return None
         # It *should* be fine now
-        if not os.access(bootmountpoint, os.W_OK | os.R_OK):
+        if not os.access(mountpoint, os.W_OK | os.R_OK):
             return None
-    return bootmountpoint
+    return mountpoint
 
 def getPartitionIndex(device):
     ''' Get the index number of a partition '''
@@ -142,26 +151,6 @@ def setVFATDeviceLabel(device, label):
     if not userConfirm("Setting label for " + device + " as " + label):
         return False
     child = subprocess.Popen("dosfslabel " + device + " " + label, stdout=subprocess.PIPE, shell=True)
-    out = child.communicate()[0].decode().strip()
-    if child.returncode == 0:
-        log.warning("Labeled " + device + " as " + label)
-        return True
-    return False
-
-def setBTRFSDeviceLabel(device, label):
-    log.warning("Will label " + device + " as " + label)
-    if not os.path.exists(device):
-        return False
-
-    # If mounted we need to specify the mountpoint in btrfs command
-    if isMounted(device):
-        device = getMountpoint(device)
-        if not device:
-            return False
-
-    if not userConfirm("Setting label for " + device + " as " + label):
-        return False
-    child = subprocess.Popen("btrfs filesystem label " + device + " " + label, stdout=subprocess.PIPE, shell=True)
     out = child.communicate()[0].decode().strip()
     if child.returncode == 0:
         log.warning("Labeled " + device + " as " + label)
