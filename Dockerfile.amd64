@@ -1,0 +1,17 @@
+#############
+FROM homeassistant/amd64-base:latest
+
+# Install build requirements
+COPY requirements.txt ./
+RUN apk add --no-cache \
+        python3 gcc libc-dev parted-dev python3-dev \
+        blkid btrfs-progs btrfs-progs-extra dosfstools \
+        e2fsprogs-extra jq kmod mtools parted python3 util-linux wget \
+    && pip3 install --no-cache-dir -r requirements.txt \
+    && apk del python3-dev parted-dev libc-dev
+
+# Add the current directoy in the container
+WORKDIR /app
+COPY app/ /app
+
+CMD ["/app/run.sh"]
