@@ -257,7 +257,7 @@ class Updater:
         if not self.fixFsLabels():
             log.error("Could not fix/setup fs labels.")
             return False
-        if not self.resetPersistSates():
+        if not self.resetPersistStates():
             log.error("Could not state partition.")
             return False
         if not configureBootloader(getRootPartition(self.conf), self.toUpdateRootDevice()[0], self.conf):
